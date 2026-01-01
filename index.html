@@ -1,0 +1,1663 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📷 EXIF Viewer & Remover</title>
+    <script src="https://cdn.jsdelivr.net/npm/exif-js@2.3.0/exif.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+        :root {
+            --bg-primary: #0d1117;
+            --bg-secondary: #161b22;
+            --bg-tertiary: #21262d;
+            --bg-card: #1c2128;
+            --text-primary: #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted: #6e7681;
+            --accent-primary: #58a6ff;
+            --accent-secondary: #388bfd;
+            --accent-glow: rgba(88, 166, 255, 0.2);
+            --warning: #d29922;
+            --warning-bg: rgba(210, 153, 34, 0.1);
+            --error: #f85149;
+            --error-bg: rgba(248, 81, 73, 0.1);
+            --success: #3fb950;
+            --success-bg: rgba(63, 185, 80, 0.1);
+            --border: #30363d;
+            --border-hover: #484f58;
+            --gradient-1: linear-gradient(135deg, #58a6ff 0%, #388bfd 100%);
+            --gradient-2: linear-gradient(135deg, #f85149 0%, #da3633 100%);
+            --shadow-glow: 0 0 30px rgba(88, 166, 255, 0.15);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f6f8fa;
+            --bg-tertiary: #eaeef2;
+            --bg-card: #ffffff;
+            --text-primary: #1f2328;
+            --text-secondary: #59636e;
+            --text-muted: #8c959f;
+            --accent-primary: #0969da;
+            --accent-secondary: #0550ae;
+            --accent-glow: rgba(9, 105, 218, 0.15);
+            --warning: #9a6700;
+            --warning-bg: rgba(154, 103, 0, 0.1);
+            --error: #cf222e;
+            --error-bg: rgba(207, 34, 46, 0.1);
+            --success: #1a7f37;
+            --success-bg: rgba(26, 127, 55, 0.1);
+            --border: #d0d7de;
+            --border-hover: #afb8c1;
+            --shadow-glow: 0 4px 20px rgba(9, 105, 218, 0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            line-height: 1.6;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(ellipse at 0% 0%, var(--accent-glow) 0%, transparent 50%),
+                radial-gradient(ellipse at 100% 100%, rgba(248, 81, 73, 0.08) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 2.5rem;
+            padding-top: 1rem;
+        }
+
+        .logo {
+            display: inline-flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .logo-icon {
+            width: 56px;
+            height: 56px;
+            background: var(--gradient-1);
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.6rem;
+            box-shadow: var(--shadow-glow);
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.05rem;
+            max-width: 550px;
+            margin: 0 auto;
+        }
+
+        /* Theme Toggle */
+        .theme-toggle {
+            position: fixed;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1);
+            border-color: var(--accent-primary);
+        }
+
+        
+
+        /* Main Grid */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 900px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            transition: border-color 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: var(--border-hover);
+        }
+
+        .card-header {
+            padding: 1.25rem 1.5rem;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .card-header-icon {
+            width: 32px;
+            height: 32px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .card-body {
+            padding: 1.5rem;
+        }
+
+        /* Upload Zone */
+        .upload-zone {
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--bg-secondary);
+            position: relative;
+        }
+
+        .upload-zone:hover {
+            border-color: var(--accent-primary);
+            background: var(--accent-glow);
+        }
+
+        .upload-zone.dragover {
+            border-color: var(--accent-primary);
+            background: var(--accent-glow);
+            transform: scale(1.01);
+        }
+
+        .upload-zone.has-image {
+            padding: 1rem;
+            border-style: solid;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.8;
+        }
+
+        .upload-text {
+            color: var(--text-secondary);
+        }
+
+        .upload-text strong {
+            color: var(--accent-primary);
+        }
+
+        .upload-hint {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+        }
+
+        .upload-zone input {
+            display: none;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            max-height: 300px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .upload-zone.has-image .image-preview {
+            display: block;
+            margin: 0 auto;
+        }
+
+        .upload-zone.has-image .upload-content {
+            display: none;
+        }
+
+        /* Image Info */
+        .image-info {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 10px;
+            display: none;
+        }
+
+        .image-info.visible {
+            display: block;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        .info-value {
+            color: var(--text-primary);
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 0.875rem 1.5rem;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            border: none;
+            font-family: inherit;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: #fff;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px var(--accent-glow);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: var(--gradient-2);
+            color: #fff;
+        }
+
+        .btn-danger:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(248, 81, 73, 0.3);
+        }
+
+        .btn-danger:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
+        /* EXIF Data Display */
+        .exif-section {
+            display: none;
+        }
+
+        .exif-section.visible {
+            display: block;
+        }
+
+        .exif-category {
+            margin-bottom: 1.5rem;
+        }
+
+        .exif-category:last-child {
+            margin-bottom: 0;
+        }
+
+        .exif-category-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .exif-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 0.75rem;
+        }
+
+        .exif-item {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 0.875rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .exif-item:hover {
+            border-color: var(--border-hover);
+        }
+
+        .exif-item.warning {
+            border-color: var(--warning);
+            background: var(--warning-bg);
+        }
+
+        .exif-item.danger {
+            border-color: var(--error);
+            background: var(--error-bg);
+        }
+
+        .exif-key {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 0.25rem;
+        }
+
+        .exif-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            word-break: break-all;
+        }
+
+        .exif-value.sensitive {
+            color: var(--error);
+        }
+
+        /* GPS Map Preview */
+        .gps-preview {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: var(--error-bg);
+            border: 1px solid var(--error);
+            border-radius: 10px;
+            display: none;
+        }
+
+        .gps-preview.visible {
+            display: block;
+        }
+
+        .gps-warning {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .gps-warning-icon {
+            font-size: 1.5rem;
+        }
+
+        .gps-warning-text {
+            flex: 1;
+        }
+
+        .gps-warning-title {
+            font-weight: 600;
+            color: var(--error);
+            margin-bottom: 0.25rem;
+        }
+
+        .gps-warning-desc {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+
+        .gps-coordinates {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .gps-coord {
+            flex: 1;
+            min-width: 150px;
+            padding: 0.75rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+        }
+
+        .gps-coord-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .gps-coord-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-weight: 600;
+        }
+
+        .gps-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--accent-primary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .gps-link:hover {
+            border-color: var(--accent-primary);
+            background: var(--accent-glow);
+        }
+
+        /* No EXIF Message */
+        .no-exif {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+        }
+
+        .no-exif-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            opacity: 0.5;
+        }
+
+        .no-exif-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Result Section */
+        .result-section {
+            margin-top: 1.5rem;
+            padding: 1.5rem;
+            background: var(--success-bg);
+            border: 1px solid var(--success);
+            border-radius: 12px;
+            display: none;
+        }
+
+        .result-section.visible {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .result-icon {
+            font-size: 1.5rem;
+        }
+
+        .result-title {
+            font-weight: 600;
+            color: var(--success);
+        }
+
+        .result-comparison {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .comparison-item {
+            padding: 1rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .comparison-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        .comparison-value {
+            font-family: 'IBM Plex Mono', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .comparison-value.reduced {
+            color: var(--success);
+        }
+
+        /* EXIF Actions */
+        .exif-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .exif-actions .btn {
+            flex: none;
+            padding: 0.75rem 1.25rem;
+            font-size: 0.9rem;
+        }
+
+        /* All EXIF Table */
+        .all-exif-toggle {
+            margin-top: 1rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            transition: all 0.3s ease;
+        }
+
+        .all-exif-toggle:hover {
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .all-exif-toggle .icon {
+            transition: transform 0.3s ease;
+        }
+
+        .all-exif-toggle.expanded .icon {
+            transform: rotate(180deg);
+        }
+
+        .all-exif-table {
+            margin-top: 1rem;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .all-exif-table.expanded {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .exif-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .exif-table th,
+        .exif-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .exif-table th {
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .exif-table td:first-child {
+            color: var(--text-muted);
+            font-family: 'IBM Plex Mono', monospace;
+        }
+
+        .exif-table td:last-child {
+            word-break: break-all;
+        }
+
+        /* Toast */
+        .toast-container {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .toast {
+            padding: 1rem 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            animation: slideIn 0.3s ease;
+            max-width: 350px;
+        }
+
+        .toast.success { border-color: var(--success); }
+        .toast.error { border-color: var(--error); }
+        .toast.warning { border-color: var(--warning); }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        /* Info Section */
+        .info-section {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .info-section-title {
+            font-weight: 600;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .info-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .info-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+            padding: 1rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+
+        .info-item-icon {
+            font-size: 1.2rem;
+        }
+
+        .info-item-text {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .info-item-text strong {
+            color: var(--text-primary);
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+
+        footer a {
+            color: var(--accent-primary);
+            text-decoration: none;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.8rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .result-comparison {
+                grid-template-columns: 1fr;
+            }
+
+            .gps-coordinates {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="toast-container" id="toastContainer"></div>
+
+    <button class="theme-toggle" id="themeToggle" title="Toggle Theme">🌙</button>
+
+    <canvas id="canvas" style="display: none;"></canvas>
+
+    <div class="container">
+        <header>
+            <div class="logo">
+                <div class="logo-icon">📷</div>
+                <h1>EXIF Viewer & Remover</h1>
+            </div>
+            <p class="subtitle">
+                이미지에 숨겨진 메타데이터를 확인하고 안전하게 제거하세요. <br>
+                모든 처리는 서버 업로드 없이 로컬(브라우저)에서 이루어집니다.
+            </p>
+            
+        </header>
+
+        <div class="main-grid">
+            <!-- Left Panel: Image Upload -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-header-icon">🖼️</span>
+                    <span class="card-title">이미지 선택</span>
+                </div>
+                <div class="card-body">
+                    <div class="upload-zone" id="uploadZone">
+                        <input type="file" id="imageInput" accept="image/jpeg,image/jpg,image/png,image/webp,image/tiff">
+                        <div class="upload-content">
+                            <div class="upload-icon">📁</div>
+                            <div class="upload-text">
+                                <strong>클릭</strong>하거나 이미지를 <strong>드래그</strong>하세요
+                            </div>
+                            <div class="upload-hint">JPEG, PNG, WebP, TIFF 지원</div>
+                        </div>
+                        <img class="image-preview" id="imagePreview" alt="Preview">
+                    </div>
+
+                    <div class="image-info" id="imageInfo">
+                        <div class="info-row">
+                            <span class="info-label">파일명</span>
+                            <span class="info-value" id="fileName">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">파일 크기</span>
+                            <span class="info-value" id="fileSize">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">해상도</span>
+                            <span class="info-value" id="resolution">-</span>
+                        </div>
+                        <div class="info-row">
+                            <span class="info-label">파일 형식</span>
+                            <span class="info-value" id="fileType">-</span>
+                        </div>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button class="btn btn-secondary" id="clearBtn" disabled>
+                            🗑️ 초기화
+                        </button>
+                        <button class="btn btn-danger" id="removeExifBtn" disabled>
+                            🧹 메타데이터 제거
+                        </button>
+                    </div>
+
+                    <div class="result-section" id="resultSection">
+                        <div class="result-header">
+                            <span class="result-icon">✅</span>
+                            <span class="result-title">메타데이터 제거 완료!</span>
+                        </div>
+                        <div class="result-comparison">
+                            <div class="comparison-item">
+                                <div class="comparison-label">원본 크기</div>
+                                <div class="comparison-value" id="originalSize">-</div>
+                            </div>
+                            <div class="comparison-item">
+                                <div class="comparison-label">정리 후 크기</div>
+                                <div class="comparison-value reduced" id="cleanedSize">-</div>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary" id="downloadBtn">
+                            💾 정리된 이미지 다운로드
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Panel: EXIF Data -->
+            <div class="card">
+                <div class="card-header">
+                    <span class="card-header-icon">📋</span>
+                    <span class="card-title">EXIF 메타데이터</span>
+                </div>
+                <div class="card-body">
+                    <div class="no-exif" id="noExif">
+                        <div class="no-exif-icon">🔍</div>
+                        <div class="no-exif-title">이미지를 업로드하세요</div>
+                        <p>EXIF 메타데이터를 분석하고 표시합니다</p>
+                    </div>
+
+                    <div class="exif-section" id="exifSection">
+                        <!-- GPS Warning -->
+                        <div class="gps-preview" id="gpsPreview">
+                            <div class="gps-warning">
+                                <span class="gps-warning-icon">⚠️</span>
+                                <div class="gps-warning-text">
+                                    <div class="gps-warning-title">위치 정보가 포함되어 있습니다!</div>
+                                    <div class="gps-warning-desc">
+                                        이 이미지에는 촬영 위치(GPS 좌표)가 저장되어 있습니다.
+                                        공유 전에 반드시 메타데이터를 제거하세요.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="gps-coordinates">
+                                <div class="gps-coord">
+                                    <div class="gps-coord-label">위도 (Latitude)</div>
+                                    <div class="gps-coord-value" id="gpsLat">-</div>
+                                </div>
+                                <div class="gps-coord">
+                                    <div class="gps-coord-label">경도 (Longitude)</div>
+                                    <div class="gps-coord-value" id="gpsLng">-</div>
+                                </div>
+                            </div>
+                            <a class="gps-link" id="gpsMapLink" href="#" target="_blank">
+                                🗺️ 지도에서 위치 확인
+                            </a>
+                        </div>
+
+                        <!-- Camera Info -->
+                        <div class="exif-category" id="cameraCategory">
+                            <div class="exif-category-title">
+                                <span>📸</span> 카메라 정보
+                            </div>
+                            <div class="exif-grid" id="cameraGrid"></div>
+                        </div>
+
+                        <!-- Date/Time Info -->
+                        <div class="exif-category" id="dateCategory">
+                            <div class="exif-category-title">
+                                <span>🕐</span> 날짜 및 시간
+                            </div>
+                            <div class="exif-grid" id="dateGrid"></div>
+                        </div>
+
+                        <!-- Image Settings -->
+                        <div class="exif-category" id="settingsCategory">
+                            <div class="exif-category-title">
+                                <span>⚙️</span> 촬영 설정
+                            </div>
+                            <div class="exif-grid" id="settingsGrid"></div>
+                        </div>
+
+                        <!-- EXIF Actions -->
+                        <div class="exif-actions">
+                            <button class="btn btn-secondary" id="downloadExifMdBtn">
+                                📥 마크다운으로 저장
+                            </button>
+                        </div>
+
+                        <!-- All EXIF Toggle -->
+                        <button class="all-exif-toggle" id="allExifToggle">
+                            <span>📄 전체 메타데이터 보기</span>
+                            <span class="icon">▼</span>
+                        </button>
+                        <div class="all-exif-table" id="allExifTable">
+                            <table class="exif-table">
+                                <thead>
+                                    <tr>
+                                        <th>태그</th>
+                                        <th>값</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="allExifBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="no-exif" id="noExifFound" style="display: none;">
+                        <div class="no-exif-icon">✨</div>
+                        <div class="no-exif-title">메타데이터 없음</div>
+                        <p>이 이미지에는 EXIF 메타데이터가 없습니다</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="info-section">
+            <div class="info-section-title">
+                <span>💡</span> EXIF 메타데이터란?
+            </div>
+            <div class="info-list">
+                <div class="info-item">
+                    <span class="info-item-icon">📸</span>
+                    <div class="info-item-text">
+                        <strong>카메라 정보</strong>: 제조사, 모델명, 렌즈 정보 등
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-item-icon">📍</span>
+                    <div class="info-item-text">
+                        <strong>위치 정보</strong>: GPS 좌표로 촬영 장소 노출 가능
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-item-icon">📅</span>
+                    <div class="info-item-text">
+                        <strong>시간 정보</strong>: 촬영 날짜, 시간, 시간대
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="info-item-icon">⚙️</span>
+                    <div class="info-item-text">
+                        <strong>촬영 설정</strong>: ISO, 셔터 속도, 조리개 등
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <a href="https://github.com/answndud/ExifViewer" target="_blank">View on GitHub</a>
+        </footer>
+    </div>
+
+    <script>
+        // ============================================
+        // 📷 EXIF Viewer & Remover - Main Application
+        // ============================================
+
+        // State
+        let currentFile = null;
+        let currentImage = null;
+        let exifData = null;
+        let cleanedBlob = null;
+
+        // DOM Elements
+        const uploadZone = document.getElementById('uploadZone');
+        const imageInput = document.getElementById('imageInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const imageInfo = document.getElementById('imageInfo');
+        const noExif = document.getElementById('noExif');
+        const noExifFound = document.getElementById('noExifFound');
+        const exifSection = document.getElementById('exifSection');
+        const gpsPreview = document.getElementById('gpsPreview');
+        const resultSection = document.getElementById('resultSection');
+        const clearBtn = document.getElementById('clearBtn');
+        const removeExifBtn = document.getElementById('removeExifBtn');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const themeToggle = document.getElementById('themeToggle');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // ============================================
+        // Theme Management
+        // ============================================
+        function initTheme() {
+            const savedTheme = localStorage.getItem('exif-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+        }
+
+        function toggleTheme() {
+            const current = document.documentElement.getAttribute('data-theme');
+            const next = current === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            localStorage.setItem('exif-theme', next);
+            updateThemeIcon(next);
+        }
+
+        function updateThemeIcon(theme) {
+            themeToggle.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+
+        themeToggle.addEventListener('click', toggleTheme);
+        initTheme();
+
+        // ============================================
+        // File Upload Handling
+        // ============================================
+        uploadZone.addEventListener('click', () => imageInput.click());
+
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.classList.add('dragover');
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.classList.remove('dragover');
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadZone.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) {
+                handleFile(file);
+            }
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        function handleFile(file) {
+            currentFile = file;
+            cleanedBlob = null;
+            resultSection.classList.remove('visible');
+
+            // Display preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                uploadZone.classList.add('has-image');
+
+                // Create image for dimensions
+                const img = new Image();
+                img.onload = () => {
+                    currentImage = img;
+                    updateImageInfo(file, img);
+                    extractExifData(img);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+
+            // Enable buttons
+            clearBtn.disabled = false;
+            removeExifBtn.disabled = false;
+        }
+
+        function updateImageInfo(file, img) {
+            document.getElementById('fileName').textContent = truncateText(file.name, 25);
+            document.getElementById('fileSize').textContent = formatBytes(file.size);
+            document.getElementById('resolution').textContent = `${img.width} × ${img.height}`;
+            document.getElementById('fileType').textContent = file.type.split('/')[1].toUpperCase();
+            imageInfo.classList.add('visible');
+        }
+
+        function truncateText(text, maxLength) {
+            if (text.length <= maxLength) return text;
+            const ext = text.split('.').pop();
+            const name = text.slice(0, -(ext.length + 1));
+            return name.slice(0, maxLength - ext.length - 4) + '...' + '.' + ext;
+        }
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+        }
+
+        // ============================================
+        // EXIF Data Extraction
+        // ============================================
+        function extractExifData(img) {
+            EXIF.getData(img, function() {
+                exifData = EXIF.getAllTags(this);
+                
+                if (Object.keys(exifData).length === 0) {
+                    showNoExif();
+                } else {
+                    displayExifData(exifData);
+                }
+            });
+        }
+
+        function showNoExif() {
+            noExif.style.display = 'none';
+            noExifFound.style.display = 'block';
+            exifSection.classList.remove('visible');
+            removeExifBtn.textContent = '🧹 메타데이터 없음';
+            removeExifBtn.disabled = true;
+        }
+
+        function displayExifData(data) {
+            noExif.style.display = 'none';
+            noExifFound.style.display = 'none';
+            exifSection.classList.add('visible');
+
+            // Camera Info
+            const cameraGrid = document.getElementById('cameraGrid');
+            cameraGrid.innerHTML = '';
+            const cameraFields = [
+                { key: 'Make', label: '제조사' },
+                { key: 'Model', label: '카메라 모델' },
+                { key: 'LensModel', label: '렌즈' },
+                { key: 'Software', label: '소프트웨어' }
+            ];
+            let hasCameraData = false;
+            cameraFields.forEach(field => {
+                if (data[field.key]) {
+                    hasCameraData = true;
+                    cameraGrid.appendChild(createExifItem(field.label, data[field.key]));
+                }
+            });
+            document.getElementById('cameraCategory').style.display = hasCameraData ? 'block' : 'none';
+
+            // Date/Time Info
+            const dateGrid = document.getElementById('dateGrid');
+            dateGrid.innerHTML = '';
+            const dateFields = [
+                { key: 'DateTime', label: '수정 일시' },
+                { key: 'DateTimeOriginal', label: '촬영 일시' },
+                { key: 'DateTimeDigitized', label: '디지털화 일시' }
+            ];
+            let hasDateData = false;
+            dateFields.forEach(field => {
+                if (data[field.key]) {
+                    hasDateData = true;
+                    const formatted = formatExifDate(data[field.key]);
+                    dateGrid.appendChild(createExifItem(field.label, formatted, 'warning'));
+                }
+            });
+            document.getElementById('dateCategory').style.display = hasDateData ? 'block' : 'none';
+
+            // Settings Info
+            const settingsGrid = document.getElementById('settingsGrid');
+            settingsGrid.innerHTML = '';
+            const settingsFields = [
+                { key: 'ExposureTime', label: '셔터 속도', format: formatExposure },
+                { key: 'FNumber', label: '조리개', format: (v) => `f/${v}` },
+                { key: 'ISOSpeedRatings', label: 'ISO' },
+                { key: 'FocalLength', label: '초점 거리', format: (v) => `${v}mm` },
+                { key: 'Flash', label: '플래시', format: formatFlash },
+                { key: 'WhiteBalance', label: '화이트밸런스', format: formatWhiteBalance }
+            ];
+            let hasSettingsData = false;
+            settingsFields.forEach(field => {
+                if (data[field.key] !== undefined) {
+                    hasSettingsData = true;
+                    let value = data[field.key];
+                    if (field.format) {
+                        value = field.format(value);
+                    }
+                    settingsGrid.appendChild(createExifItem(field.label, value));
+                }
+            });
+            document.getElementById('settingsCategory').style.display = hasSettingsData ? 'block' : 'none';
+
+            // GPS Data
+            displayGPSData(data);
+
+            // All EXIF Table
+            displayAllExif(data);
+        }
+
+        function createExifItem(label, value, className = '') {
+            const div = document.createElement('div');
+            div.className = `exif-item ${className}`;
+            div.innerHTML = `
+                <div class="exif-key">${label}</div>
+                <div class="exif-value">${value}</div>
+            `;
+            return div;
+        }
+
+        function formatExifDate(dateStr) {
+            // EXIF date format: "YYYY:MM:DD HH:MM:SS"
+            const parts = dateStr.split(' ');
+            if (parts.length === 2) {
+                const dateParts = parts[0].split(':');
+                return `${dateParts[0]}년 ${dateParts[1]}월 ${dateParts[2]}일 ${parts[1]}`;
+            }
+            return dateStr;
+        }
+
+        function formatExposure(value) {
+            if (value < 1) {
+                return `1/${Math.round(1/value)}초`;
+            }
+            return `${value}초`;
+        }
+
+        function formatFlash(value) {
+            const flashModes = {
+                0: '발광 안함',
+                1: '발광',
+                5: '발광 (리턴 감지 안됨)',
+                7: '발광 (리턴 감지됨)',
+                9: '강제 발광',
+                13: '강제 발광 (리턴 감지 안됨)',
+                15: '강제 발광 (리턴 감지됨)',
+                16: '발광 안함 (강제)',
+                24: '자동, 발광 안함',
+                25: '자동, 발광',
+                29: '자동, 발광 (리턴 감지 안됨)',
+                31: '자동, 발광 (리턴 감지됨)'
+            };
+            return flashModes[value] || `알 수 없음 (${value})`;
+        }
+
+        function formatWhiteBalance(value) {
+            return value === 0 ? '자동' : '수동';
+        }
+
+        function displayGPSData(data) {
+            const hasGPS = data.GPSLatitude && data.GPSLongitude;
+            
+            if (hasGPS) {
+                const lat = convertDMSToDD(data.GPSLatitude, data.GPSLatitudeRef);
+                const lng = convertDMSToDD(data.GPSLongitude, data.GPSLongitudeRef);
+                
+                document.getElementById('gpsLat').textContent = `${lat.toFixed(6)}° ${data.GPSLatitudeRef || 'N'}`;
+                document.getElementById('gpsLng').textContent = `${lng.toFixed(6)}° ${data.GPSLongitudeRef || 'E'}`;
+                
+                // Google Maps link
+                const mapLink = document.getElementById('gpsMapLink');
+                mapLink.href = `https://www.google.com/maps?q=${lat},${lng}`;
+                
+                gpsPreview.classList.add('visible');
+            } else {
+                gpsPreview.classList.remove('visible');
+            }
+        }
+
+        function convertDMSToDD(dms, ref) {
+            // DMS = [degrees, minutes, seconds]
+            if (!dms || dms.length < 3) return 0;
+            
+            let dd = dms[0] + dms[1]/60 + dms[2]/3600;
+            
+            if (ref === 'S' || ref === 'W') {
+                dd = -dd;
+            }
+            
+            return dd;
+        }
+
+        function displayAllExif(data) {
+            const tbody = document.getElementById('allExifBody');
+            tbody.innerHTML = '';
+            
+            const sensitiveKeys = ['GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef', 
+                                   'DateTime', 'DateTimeOriginal', 'DateTimeDigitized'];
+            
+            Object.entries(data).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    const tr = document.createElement('tr');
+                    const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                    const isSensitive = sensitiveKeys.includes(key);
+                    
+                    tr.innerHTML = `
+                        <td>${key}</td>
+                        <td style="${isSensitive ? 'color: var(--error);' : ''}">${displayValue}</td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            });
+        }
+
+        // Toggle all EXIF table
+        document.getElementById('allExifToggle').addEventListener('click', function() {
+            this.classList.toggle('expanded');
+            document.getElementById('allExifTable').classList.toggle('expanded');
+        });
+
+        // ============================================
+        // Download EXIF as Markdown
+        // ============================================
+        document.getElementById('downloadExifMdBtn').addEventListener('click', () => {
+            if (!exifData || !currentFile) return;
+            
+            const markdown = generateExifMarkdown(exifData, currentFile);
+            const blob = new Blob([markdown], { type: 'text/markdown;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            
+            const originalName = currentFile.name.replace(/\.[^/.]+$/, '');
+            const fileName = `${originalName}_exif.md`;
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('EXIF 정보가 마크다운 파일로 저장되었습니다!', 'success');
+        });
+
+        function generateExifMarkdown(data, file) {
+            const now = new Date().toLocaleString('ko-KR');
+            let md = `# 📷 EXIF 메타데이터 리포트\n\n`;
+            md += `> 생성일시: ${now}\n\n`;
+            md += `---\n\n`;
+            
+            // File Info
+            md += `## 📁 파일 정보\n\n`;
+            md += `| 항목 | 값 |\n`;
+            md += `|------|----|\n`;
+            md += `| 파일명 | \`${file.name}\` |\n`;
+            md += `| 파일 크기 | ${formatBytes(file.size)} |\n`;
+            md += `| 파일 형식 | ${file.type} |\n`;
+            if (currentImage) {
+                md += `| 해상도 | ${currentImage.width} × ${currentImage.height} px |\n`;
+            }
+            md += `\n`;
+            
+            // Camera Info
+            const cameraFields = [
+                { key: 'Make', label: '제조사' },
+                { key: 'Model', label: '카메라 모델' },
+                { key: 'LensModel', label: '렌즈' },
+                { key: 'Software', label: '소프트웨어' }
+            ];
+            const cameraData = cameraFields.filter(f => data[f.key]);
+            if (cameraData.length > 0) {
+                md += `## 📸 카메라 정보\n\n`;
+                md += `| 항목 | 값 |\n`;
+                md += `|------|----|\n`;
+                cameraData.forEach(f => {
+                    md += `| ${f.label} | ${data[f.key]} |\n`;
+                });
+                md += `\n`;
+            }
+            
+            // Date/Time Info
+            const dateFields = [
+                { key: 'DateTime', label: '수정 일시' },
+                { key: 'DateTimeOriginal', label: '촬영 일시' },
+                { key: 'DateTimeDigitized', label: '디지털화 일시' }
+            ];
+            const dateData = dateFields.filter(f => data[f.key]);
+            if (dateData.length > 0) {
+                md += `## 🕐 날짜 및 시간\n\n`;
+                md += `| 항목 | 값 |\n`;
+                md += `|------|----|\n`;
+                dateData.forEach(f => {
+                    md += `| ${f.label} | ${formatExifDate(data[f.key])} |\n`;
+                });
+                md += `\n`;
+            }
+            
+            // Settings Info
+            const settingsFields = [
+                { key: 'ExposureTime', label: '셔터 속도', format: formatExposure },
+                { key: 'FNumber', label: '조리개', format: (v) => `f/${v}` },
+                { key: 'ISOSpeedRatings', label: 'ISO' },
+                { key: 'FocalLength', label: '초점 거리', format: (v) => `${v}mm` },
+                { key: 'Flash', label: '플래시', format: formatFlash },
+                { key: 'WhiteBalance', label: '화이트밸런스', format: formatWhiteBalance },
+                { key: 'ExposureMode', label: '노출 모드' },
+                { key: 'MeteringMode', label: '측광 모드' }
+            ];
+            const settingsData = settingsFields.filter(f => data[f.key] !== undefined);
+            if (settingsData.length > 0) {
+                md += `## ⚙️ 촬영 설정\n\n`;
+                md += `| 항목 | 값 |\n`;
+                md += `|------|----|\n`;
+                settingsData.forEach(f => {
+                    let value = data[f.key];
+                    if (f.format) {
+                        value = f.format(value);
+                    }
+                    md += `| ${f.label} | ${value} |\n`;
+                });
+                md += `\n`;
+            }
+            
+            // GPS Info
+            if (data.GPSLatitude && data.GPSLongitude) {
+                const lat = convertDMSToDD(data.GPSLatitude, data.GPSLatitudeRef);
+                const lng = convertDMSToDD(data.GPSLongitude, data.GPSLongitudeRef);
+                
+                md += `## 📍 GPS 위치 정보\n\n`;
+                md += `> ⚠️ **경고**: 이 이미지에는 촬영 위치가 포함되어 있습니다!\n\n`;
+                md += `| 항목 | 값 |\n`;
+                md += `|------|----|\n`;
+                md += `| 위도 (Latitude) | ${lat.toFixed(6)}° ${data.GPSLatitudeRef || 'N'} |\n`;
+                md += `| 경도 (Longitude) | ${lng.toFixed(6)}° ${data.GPSLongitudeRef || 'E'} |\n`;
+                if (data.GPSAltitude) {
+                    md += `| 고도 (Altitude) | ${data.GPSAltitude}m |\n`;
+                }
+                md += `\n`;
+                md += `🗺️ [Google Maps에서 보기](https://www.google.com/maps?q=${lat},${lng})\n\n`;
+            }
+            
+            // All EXIF Data
+            md += `## 📄 전체 메타데이터\n\n`;
+            md += `| 태그 | 값 |\n`;
+            md += `|------|----|\n`;
+            
+            const sensitiveKeys = ['GPSLatitude', 'GPSLongitude', 'GPSLatitudeRef', 'GPSLongitudeRef', 
+                                   'DateTime', 'DateTimeOriginal', 'DateTimeDigitized'];
+            
+            Object.entries(data).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    const displayValue = typeof value === 'object' ? JSON.stringify(value) : String(value);
+                    const escapedValue = displayValue.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+                    const marker = sensitiveKeys.includes(key) ? ' ⚠️' : '';
+                    md += `| ${key}${marker} | ${escapedValue} |\n`;
+                }
+            });
+            
+            md += `\n---\n\n`;
+            md += `*이 파일은 [EXIF Viewer & Remover](https://github.com)에서 생성되었습니다.*\n`;
+            
+            return md;
+        }
+
+        // ============================================
+        // EXIF Removal (Canvas Re-encoding)
+        // ============================================
+        removeExifBtn.addEventListener('click', async () => {
+            if (!currentImage) return;
+            
+            removeExifBtn.disabled = true;
+            removeExifBtn.innerHTML = '⏳ 처리 중...';
+            
+            try {
+                await removeExif();
+                showToast('메타데이터가 성공적으로 제거되었습니다!', 'success');
+            } catch (error) {
+                showToast('처리 중 오류가 발생했습니다: ' + error.message, 'error');
+                removeExifBtn.disabled = false;
+                removeExifBtn.innerHTML = '🧹 메타데이터 제거';
+            }
+        });
+
+        async function removeExif() {
+            return new Promise((resolve, reject) => {
+                try {
+                    // Set canvas size to image dimensions
+                    canvas.width = currentImage.width;
+                    canvas.height = currentImage.height;
+                    
+                    // Draw image (this strips EXIF)
+                    ctx.drawImage(currentImage, 0, 0);
+                    
+                    // Determine output format and quality
+                    const isJPEG = currentFile.type === 'image/jpeg' || currentFile.type === 'image/jpg';
+                    const mimeType = isJPEG ? 'image/jpeg' : 'image/png';
+                    const quality = isJPEG ? 0.92 : undefined;
+                    
+                    // Convert to blob
+                    canvas.toBlob((blob) => {
+                        if (!blob) {
+                            reject(new Error('이미지 변환에 실패했습니다.'));
+                            return;
+                        }
+                        
+                        cleanedBlob = blob;
+                        
+                        // Update UI
+                        document.getElementById('originalSize').textContent = formatBytes(currentFile.size);
+                        document.getElementById('cleanedSize').textContent = formatBytes(blob.size);
+                        resultSection.classList.add('visible');
+                        
+                        removeExifBtn.innerHTML = '✅ 제거 완료';
+                        
+                        resolve();
+                    }, mimeType, quality);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        // ============================================
+        // Download Clean Image
+        // ============================================
+        downloadBtn.addEventListener('click', () => {
+            if (!cleanedBlob || !currentFile) return;
+            
+            const ext = currentFile.type === 'image/png' ? 'png' : 'jpg';
+            const originalName = currentFile.name.replace(/\.[^/.]+$/, '');
+            const fileName = `${originalName}_clean.${ext}`;
+            
+            const url = URL.createObjectURL(cleanedBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            showToast('정리된 이미지가 다운로드되었습니다!', 'success');
+        });
+
+        // ============================================
+        // Clear / Reset
+        // ============================================
+        clearBtn.addEventListener('click', () => {
+            // Reset state
+            currentFile = null;
+            currentImage = null;
+            exifData = null;
+            cleanedBlob = null;
+            
+            // Reset UI
+            imagePreview.src = '';
+            uploadZone.classList.remove('has-image');
+            imageInfo.classList.remove('visible');
+            exifSection.classList.remove('visible');
+            gpsPreview.classList.remove('visible');
+            resultSection.classList.remove('visible');
+            noExif.style.display = 'block';
+            noExifFound.style.display = 'none';
+            
+            // Reset buttons
+            clearBtn.disabled = true;
+            removeExifBtn.disabled = true;
+            removeExifBtn.innerHTML = '🧹 메타데이터 제거';
+            
+            // Reset file input
+            imageInput.value = '';
+            
+            // Reset all exif toggle
+            document.getElementById('allExifToggle').classList.remove('expanded');
+            document.getElementById('allExifTable').classList.remove('expanded');
+        });
+
+        // ============================================
+        // Toast Notifications
+        // ============================================
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            
+            const icons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️'
+            };
+            
+            toast.innerHTML = `
+                <span>${icons[type]}</span>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(100%)';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
+
