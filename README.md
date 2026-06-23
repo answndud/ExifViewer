@@ -1,6 +1,6 @@
 # 📷 Photo Privacy Cleaner
 
-이미지에 숨겨진 EXIF 메타데이터를 확인하고 정리하는 웹 기반 프라이버시 도구입니다. 이미지 파일은 서버로 업로드되지 않으며, 분석과 정리는 브라우저 내부에서 처리됩니다.
+이미지에 숨겨진 메타데이터(EXIF, GPS, XMP, IPTC, ICC)를 확인하고 정리하는 웹 기반 프라이버시 도구입니다. 이미지 파일은 서버로 업로드되지 않으며, 분석과 정리는 브라우저 내부에서 처리됩니다.
 
 ![Privacy](https://img.shields.io/badge/Privacy-Browser%20Local-green)
 ![EXIF](https://img.shields.io/badge/EXIF-View%20%26%20Remove-blue)

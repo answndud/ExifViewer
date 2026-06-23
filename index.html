@@ -1043,7 +1043,7 @@
                 <h1>Photo Privacy Cleaner</h1>
             </div>
             <p class="subtitle">
-                이미지에 숨겨진 메타데이터를 확인하고 안전하게 제거하세요. <br>
+                이미지에 숨겨진 메타데이터를 확인하고 안전한 복사본을 만드세요. <br>
                 모든 처리는 서버 업로드 없이 로컬(브라우저)에서 이루어집니다.
             </p>
             
@@ -1273,7 +1273,7 @@
         </div>
 
         <footer>
-            <a href="https://github.com/answndud/ExifViewer" target="_blank" rel="noopener noreferrer">View on GitHub</a>
+            <a href="https://github.com/answndud/Photo-Privacy-Cleaner" target="_blank" rel="noopener noreferrer">View on GitHub</a>
         </footer>
     </div>
 
@@ -1309,16 +1309,20 @@
         // Theme Management
         // ============================================
         function initTheme() {
-            const savedTheme = localStorage.getItem('exif-viewer-theme') || 'light';
+            const legacyTheme = localStorage.getItem('exif-viewer-theme');
+            const savedTheme = localStorage.getItem('photo-privacy-cleaner-theme') || legacyTheme || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
             updateThemeIcon(savedTheme);
+            if (!localStorage.getItem('photo-privacy-cleaner-theme')) {
+                localStorage.setItem('photo-privacy-cleaner-theme', savedTheme);
+            }
         }
 
         function toggleTheme() {
             const current = document.documentElement.getAttribute('data-theme');
             const next = current === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', next);
-            localStorage.setItem('exif-viewer-theme', next);
+            localStorage.setItem('photo-privacy-cleaner-theme', next);
             updateThemeIcon(next);
         }
 
@@ -1398,8 +1402,18 @@
             document.getElementById('fileName').textContent = truncateText(file.name, 25);
             document.getElementById('fileSize').textContent = formatBytes(file.size);
             document.getElementById('resolution').textContent = `${img.width} × ${img.height}`;
-            document.getElementById('fileType').textContent = file.type.split('/')[1].toUpperCase();
+            document.getElementById('fileType').textContent = getDisplayFileType(file);
             imageInfo.classList.add('visible');
+        }
+
+        function getDisplayFileType(file) {
+            if (file.type && file.type.includes('/')) {
+                const subtype = file.type.split('/')[1];
+                if (subtype) return subtype.toUpperCase();
+            }
+            const parts = file.name.split('.');
+            const ext = parts.length > 1 ? parts.pop() : '';
+            return ext ? ext.toUpperCase() : 'UNKNOWN';
         }
 
         function truncateText(text, maxLength) {
