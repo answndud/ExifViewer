@@ -10,7 +10,7 @@
 2. [EXIF 데이터 구조](#2-exif-데이터-구조)
 3. [주요 EXIF 태그](#3-주요-exif-태그)
 4. [GPS 데이터 처리](#4-gps-데이터-처리)
-5. [exif-js 라이브러리 활용](#5-exif-js-라이브러리-활용)
+5. [exifr 라이브러리 활용](#5-exifr-라이브러리-활용)
 6. [Canvas를 통한 메타데이터 제거](#6-canvas를-통한-메타데이터-제거)
 7. [파일 형식별 처리](#7-파일-형식별-처리)
 8. [프라이버시 고려사항](#8-프라이버시-고려사항)
@@ -331,53 +331,45 @@ GPS 좌표 자릿수와 정밀도:
 
 ---
 
-## 5. exif-js 라이브러리 활용
+## 5. exifr 라이브러리 활용
 
 ### 5.1 라이브러리 로드
 
 ```html
-<!-- CDN을 통한 로드 -->
-<script src="https://cdn.jsdelivr.net/npm/exif-js@2.3.0/exif.min.js"></script>
+<!-- 로컬 번들 로드 -->
+<script src="./vendor/exifr.full.umd.js"></script>
 ```
 
 ### 5.2 기본 사용법
 
 ```javascript
 /**
- * 이미지에서 EXIF 데이터 추출
+ * 이미지에서 메타데이터 추출
  */
-function extractExifData(imageElement) {
-    return new Promise((resolve, reject) => {
-        EXIF.getData(imageElement, function() {
-            const allTags = EXIF.getAllTags(this);
-            
-            if (Object.keys(allTags).length === 0) {
-                resolve(null);  // EXIF 없음
-            } else {
-                resolve(allTags);
-            }
-        });
-    });
+async function extractExifData(file) {
+    return await exifr.parse(file, true);
 }
 
 // 사용 예시
-const img = document.getElementById('myImage');
-const exifData = await extractExifData(img);
+const file = document.getElementById('myFileInput').files[0];
+const exifData = await extractExifData(file);
 ```
 
 ### 5.3 특정 태그 읽기
 
 ```javascript
+const data = await exifr.parse(file, true);
+
 // 개별 태그 읽기
-const make = EXIF.getTag(imageElement, 'Make');
-const model = EXIF.getTag(imageElement, 'Model');
-const dateTime = EXIF.getTag(imageElement, 'DateTimeOriginal');
+const make = data.Make;
+const model = data.Model;
+const dateTime = data.DateTimeOriginal;
 
 // GPS 좌표 읽기
-const gpsLat = EXIF.getTag(imageElement, 'GPSLatitude');
-const gpsLatRef = EXIF.getTag(imageElement, 'GPSLatitudeRef');
-const gpsLng = EXIF.getTag(imageElement, 'GPSLongitude');
-const gpsLngRef = EXIF.getTag(imageElement, 'GPSLongitudeRef');
+const gpsLat = data.GPSLatitude;
+const gpsLatRef = data.GPSLatitudeRef;
+const gpsLng = data.GPSLongitude;
+const gpsLngRef = data.GPSLongitudeRef;
 ```
 
 ### 5.4 EXIF 데이터 분류
@@ -468,7 +460,7 @@ function interpretFlash(flashValue) {
 
 ### 6.1 원리
 
-Canvas API를 통해 이미지를 다시 그리면 **원본 파일의 모든 메타데이터가 제거**됩니다. Canvas는 순수한 픽셀 데이터만 처리하기 때문입니다.
+Canvas API를 통해 이미지를 다시 그리면 **원본 파일의 대부분의 메타데이터가 제거**됩니다. Canvas는 순수한 픽셀 데이터만 처리하기 때문입니다.
 
 ```
 원본 이미지              Canvas 처리              결과 이미지
@@ -722,7 +714,7 @@ const SENSITIVE_TAGS = [
 /*
  * 보안 모델:
  * 
- * 1. 네트워크 전송 없음
+ * 1. 이미지 데이터는 서버로 업로드하지 않음
  *    - 이미지가 서버로 업로드되지 않음
  *    - XHR/Fetch 요청 없음
  * 
@@ -933,11 +925,10 @@ async function processBatch(files) {
 
 1. **EXIF 2.32 Specification** - CIPA DC-008-Translation-2019
 2. **TIFF 6.0 Specification** - Adobe
-3. **exif-js GitHub** - https://github.com/exif-js/exif-js
+3. **exifr GitHub** - https://github.com/MikeKovarik/exifr
 4. **Canvas API - MDN** - https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API
 5. **JPEG File Format** - ITU-T T.81
 
 ---
 
 *이 문서는 EXIF Viewer & Remover 프로젝트의 기술적 구현 세부사항을 설명합니다.*
-
