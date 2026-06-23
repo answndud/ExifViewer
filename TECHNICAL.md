@@ -255,22 +255,28 @@ GPSLongitudeRef: "E"
  * 
  * 공식: DD = D + M/60 + S/3600
  * 
- * @param {number[]} dms - [도, 분, 초] 배열
+ * @param {number[]|number} value - [도, 분, 초] 배열 또는 십진수
  * @param {string} ref - 방향 참조 ('N', 'S', 'E', 'W')
- * @returns {number} - 십진도
+ * @returns {number|null} - 십진도 또는 해석 실패 시 null
  */
-function convertDMSToDD(dms, ref) {
-    if (!dms || dms.length < 3) return 0;
-    
-    // 도 + 분/60 + 초/3600
-    let dd = dms[0] + (dms[1] / 60) + (dms[2] / 3600);
-    
-    // 남위(S) 또는 서경(W)이면 음수
-    if (ref === 'S' || ref === 'W') {
-        dd = -dd;
+function convertGPSValue(value, ref) {
+    if (typeof value === 'number') {
+        return (ref === 'S' || ref === 'W') ? -Math.abs(value) : value;
     }
-    
-    return dd;
+
+    if (!Array.isArray(value) || value.length < 3) return null;
+
+    const parts = value.map(part => {
+        if (part && typeof part === 'object' && part.numerator !== undefined && part.denominator !== undefined) {
+            return part.numerator / part.denominator;
+        }
+        return Number(part);
+    });
+
+    if (parts.some(part => !Number.isFinite(part))) return null;
+
+    let dd = parts[0] + (parts[1] / 60) + (parts[2] / 3600);
+    return (ref === 'S' || ref === 'W') ? -dd : dd;
 }
 
 // 예시: 서울시청

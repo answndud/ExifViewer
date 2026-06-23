@@ -1119,12 +1119,12 @@
             <!-- Right Panel: EXIF Data -->
             <div class="card">
                 <div class="card-header">
-                    <span class="card-title">EXIF 메타데이터</span>
+                    <span class="card-title">이미지 메타데이터</span>
                 </div>
                 <div class="card-body">
                     <div class="no-exif" id="noExif">
                         <div class="no-exif-title">이미지를 업로드하세요</div>
-                        <p>EXIF 메타데이터를 분석하고 표시합니다</p>
+                        <p>EXIF, XMP, IPTC, ICC, GPS 정보를 분석하고 표시합니다</p>
                     </div>
 
                     <div class="exif-section" id="exifSection">
@@ -1237,7 +1237,7 @@
 
                     <div class="no-exif" id="noExifFound" style="display: none;">
                         <div class="no-exif-title">메타데이터 없음</div>
-                        <p>이 이미지에는 EXIF 메타데이터가 없습니다</p>
+                        <p>이 이미지에는 분석된 메타데이터가 없습니다</p>
                     </div>
                 </div>
             </div>
@@ -1246,7 +1246,7 @@
         <!-- Info Section -->
         <div class="info-section">
             <div class="info-section-title">
-                <span></span> EXIF 메타데이터란?
+                <span></span> 이미지 메타데이터란?
             </div>
             <div class="info-list">
                 <div class="info-item">
@@ -1380,12 +1380,10 @@
                 img.onerror = () => {
                     showToast('이 이미지 형식은 미리보기를 지원하지 않습니다.', 'error');
                     currentImage = null;
-                    exifData = null;
-                    noExif.style.display = 'block';
-                    noExifFound.style.display = 'none';
-                    exifSection.classList.remove('visible');
-                    removeExifBtn.textContent = '안전한 복사본 만들기';
-                    removeExifBtn.disabled = false;
+                    updateImageInfo(file, { width: '-', height: '-' });
+                    extractExifData(file);
+                    removeExifBtn.textContent = '정리 불가';
+                    removeExifBtn.disabled = true;
                 };
                 img.src = e.target.result;
             };
@@ -1462,8 +1460,13 @@
             noExif.style.display = 'none';
             noExifFound.style.display = 'block';
             exifSection.classList.remove('visible');
-            removeExifBtn.textContent = '안전한 복사본 만들기';
-            removeExifBtn.disabled = false;
+            if (currentImage) {
+                removeExifBtn.textContent = '안전한 복사본 만들기';
+                removeExifBtn.disabled = false;
+            } else {
+                removeExifBtn.textContent = '정리 불가';
+                removeExifBtn.disabled = true;
+            }
         }
 
         function displayExifData(data) {
@@ -1940,7 +1943,7 @@
                 md += `|------|----|\n`;
                 iptcData.forEach(f => {
                     const value = f.format ? f.format(data[f.key]) : data[f.key];
-                    md += `| ${f.label} | ${String(value).replace(/\|/g, '\\|').replace(/\n/g, ' ')} |\n`;
+                    md += `| ${escapeMarkdownCell(f.label)} | ${escapeMarkdownCell(value)} |\n`;
                 });
                 md += `\n`;
             }
@@ -1968,20 +1971,25 @@
 
             // GPS Info
             if (data.GPSLatitude && data.GPSLongitude) {
-                const lat = convertDMSToDD(data.GPSLatitude, data.GPSLatitudeRef);
-                const lng = convertDMSToDD(data.GPSLongitude, data.GPSLongitudeRef);
+                const lat = convertGPSValue(data.GPSLatitude, data.GPSLatitudeRef);
+                const lng = convertGPSValue(data.GPSLongitude, data.GPSLongitudeRef);
+                if (lat === null || lng === null) {
+                    md += `## GPS 위치 정보\n\n`;
+                    md += `> 경고: 이 이미지에는 GPS 정보가 포함되어 있을 수 있지만, 좌표 형식을 해석하지 못했습니다.\n\n`;
+                } else {
                 
-                md += `## GPS 위치 정보\n\n`;
-                md += `> 경고: 이 이미지에는 촬영 위치가 포함되어 있습니다.\n\n`;
-                md += `| 항목 | 값 |\n`;
-                md += `|------|----|\n`;
-                md += `| 위도 (Latitude) | ${escapeMarkdownCell(`${lat.toFixed(6)}° ${data.GPSLatitudeRef || 'N'}`)} |\n`;
-                md += `| 경도 (Longitude) | ${escapeMarkdownCell(`${lng.toFixed(6)}° ${data.GPSLongitudeRef || 'E'}`)} |\n`;
-                if (data.GPSAltitude) {
-                    md += `| 고도 (Altitude) | ${escapeMarkdownCell(`${data.GPSAltitude}m`)} |\n`;
+                    md += `## GPS 위치 정보\n\n`;
+                    md += `> 경고: 이 이미지에는 촬영 위치가 포함되어 있습니다.\n\n`;
+                    md += `| 항목 | 값 |\n`;
+                    md += `|------|----|\n`;
+                    md += `| 위도 (Latitude) | ${escapeMarkdownCell(`${lat.toFixed(6)}° ${data.GPSLatitudeRef || 'N'}`)} |\n`;
+                    md += `| 경도 (Longitude) | ${escapeMarkdownCell(`${lng.toFixed(6)}° ${data.GPSLongitudeRef || 'E'}`)} |\n`;
+                    if (data.GPSAltitude) {
+                        md += `| 고도 (Altitude) | ${escapeMarkdownCell(`${data.GPSAltitude}m`)} |\n`;
+                    }
+                    md += `\n`;
+                    md += `[Google Maps에서 보기](https://www.google.com/maps?q=${lat},${lng})\n\n`;
                 }
-                md += `\n`;
-                md += `[Google Maps에서 보기](https://www.google.com/maps?q=${lat},${lng})\n\n`;
             }
             
             // All EXIF Data
@@ -2010,7 +2018,10 @@
         // EXIF Removal (Canvas Re-encoding)
         // ============================================
         removeExifBtn.addEventListener('click', async () => {
-            if (!currentImage) return;
+            if (!currentImage) {
+                showToast('이 형식은 정리할 수 없습니다. 미리보기 가능한 이미지로 다시 시도하세요.', 'error');
+                return;
+            }
             
             removeExifBtn.disabled = true;
             removeExifBtn.textContent = '처리 중...';
